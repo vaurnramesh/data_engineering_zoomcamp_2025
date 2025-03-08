@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+#  Mounts a volume:
+
+## The host directory $(pwd)/ny_taxi_postgres_data (your local machine) is mapped to
+## The container directory /var/lib/postgresql/data (where PostgreSQL stores its data).
+
+# docker run -it \
+#   -e POSTGRES_USER="root" \
+#   -e POSTGRES_PASSWORD="root" \
+#   -e POSTGRES_DB="ny_taxi" \
+#   -v $(pwd)/ny_taxi_postgres_data:/var/lib/postgresql/data \ 
+#   -p 5432:5432 \
+#   postgres:13
+
+
+## Running postgres and pgadmin on the same network 
+
+# docker run -it \
+#   -e POSTGRES_USER="root" \
+#   -e POSTGRES_PASSWORD="root" \
+#   -e POSTGRES_DB="ny_taxi" \
+#   -v "$(pwd)/ny_taxi_postgres_data:/var/lib/postgresql/data" \ 
+#   -p 5432:5432 \
+#   --network=pg-network \
+#   --name pg-database \
+# postgres:13
+
+## Network Id
+
+# a14f4df523b0bee7f2055243b1d62da78648863bdaf764843443be7811f64dbb
+
+
+## Running pgadmin
+# docker run -it \
+#   -e PGADMIN_DEFAULT_EMAIL="admin@admin.com" \
+#   -e PGADMIN_DEFAULT_PASSWORD="root" \
+#   -p 8080:80 \
+#   dpage/pgadmin4
