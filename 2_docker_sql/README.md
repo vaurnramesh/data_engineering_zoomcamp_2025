@@ -68,6 +68,7 @@ docker run -it \
   -p 5432:5432 \
   postgres:13
 ```
+The host directory `$(pwd)/ny_taxi_postgres_data` in your local machine is mapped to and the container directory `/var/lib/postgresql/data` where PostgreSQL stores its data.
 
 If you see that `ny_taxi_postgres_data` is empty after running
 the container, try these:
@@ -199,6 +200,19 @@ docker network inspect pg-network
 ```
 - Then restart the container `docker restart vigilant_hypatia` and inspect the network again using the above command. 
 - Ensure that both pg-database and vigilant_hypatia are both listed
+
+### Docker Compose
+
+From this section, we do not need to use multiple terminals for `pgadmin` and `postgres`. We can simply run both the containers using the `docker-compose` commands - 
+
+To start/stop the containers -  
+
+```
+docker-compose up
+
+
+docker-compose down
+```
 
 ### Data ingestion
 
