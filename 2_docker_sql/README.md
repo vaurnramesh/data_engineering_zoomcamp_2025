@@ -19,7 +19,7 @@ Before creating an `.yaml` file, week 1 will need 4 different terminals -
 -  Run Python commands on virual environment
 -  Git tasks, linux OS commands
 
-### Running Postgres with Docker
+### 1.2.1 Running Postgres with Docker
 
 #### Windows
 
@@ -77,7 +77,7 @@ the container, try these:
 * Adjust the permissions of the folder by running `sudo chmod a+rwx ny_taxi_postgres_data`
 
 
-### CLI for Postgres
+#### CLI for Postgres
 
 Installing `pgcli`
 
@@ -98,11 +98,16 @@ Using `pgcli` to connect to Postgres
 pgcli -h localhost -p 5432 -u root -d ny_taxi
 ```
 
-### Setting up Python in vscode
+#### Setting up Python in vscode
 
 We can install all the python libraries in a virtual environment. To start a virtual env - 
 ```
 python3 -m venv .venv
+```
+
+To activate the virtual environment 
+```
+source .venv/bin/activate
 ```
 
 To run the script
@@ -111,7 +116,7 @@ To run the script
 python ingest_data.py
 ```
 
-### NY Trips Dataset
+### 1.2.2 NY Trips Dataset
 
 Dataset:
 
@@ -133,7 +138,7 @@ $ aws s3 ls s3://nyc-tlc
 You can refer the `data-loading-parquet.ipynb` and `data-loading-parquet.py` for code to handle both csv and parquet files. (The lookup zones table which is needed later in this course is a csv file)
 > Note: You will need to install the `pyarrow` library. (add it to your Dockerfile)
 
-### Download the 2021 CSV
+#### Download the 2021 CSV
 
 ```
 wget https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_2021-01.csv.gz
@@ -146,7 +151,7 @@ less <file_name>
 head -n 100
 ```
 
-### pgAdmin
+#### pgAdmin
 
 Running pgAdmin
 
@@ -158,7 +163,7 @@ docker run -it \
   dpage/pgadmin4
 ```
 
-### Running Postgres and pgAdmin together
+### 1.2.3 Running Postgres and pgAdmin together
 
 The reason for doing this is because currently postgres and pgadmin are running in different containers. These containers are required to be in the same network. So we create a network as below
 
@@ -201,20 +206,7 @@ docker network inspect pg-network
 - Then restart the container `docker restart vigilant_hypatia` and inspect the network again using the above command. 
 - Ensure that both pg-database and vigilant_hypatia are both listed
 
-### Docker Compose
-
-From this section, we do not need to use multiple terminals for `pgadmin` and `postgres`. We can simply run both the containers using the `docker-compose` commands - 
-
-To start/stop the containers -  
-
-```
-docker-compose up
-
-
-docker-compose down
-```
-
-### Data ingestion
+### 1.2.4 Data ingestion
 
 Running locally
 
@@ -259,24 +251,20 @@ Run the script with Docker
 URL="https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_2021-01.csv.gz"
 
 docker run -it \
-  --network=pg-network \
+  --network=2_docker_sql_pgnetwork \
   taxi_ingest:v001 \
     --user=root \
     --password=root \
-    --host=pg-database \
+    --host=pgdatabase \
     --port=5432 \
     --db=ny_taxi \
     --table_name=yellow_taxi_trips \
     --url=${URL}
 ```
 
-### Docker-Compose 
+### 1.2.5 Docker-Compose 
 
-Run it:
-
-```bash
-docker-compose up
-```
+From this section, we do not need to use multiple terminals for `pgadmin` and `postgres`. We can simply run both the containers using the `docker-compose` commands
 
 Run in detached mode:
 
@@ -307,8 +295,42 @@ services:
     ...
 ```
 
+#### Adding networks and final code to start up
 
-### SQL Refresher
+We've added both the pgadmin container and postgres under the same network `pgnetwork`
+
+```yaml
+networks:
+  pgnetwork:
+    driver: bridge
+```
+
+First run the containers up - 
+
+```bash
+docker-compose up -d
+```
+
+Second, if you need to ingest data then -
+
+```bash
+URL="https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_2021-01.csv.gz"
+
+ docker run -it \
+  --network=2_docker_sql_pgnetwork \
+  taxi_ingest:v001 \
+    --user=root \
+    --password=root \
+    --host=pgdatabase \
+    --port=5432 \
+    --db=ny_taxi \
+    --table_name=yellow_taxi_trips \
+    --url=${URL}
+```
+
+Log in to the PG admin > Register > Server. Add any `Name` and go to connections > `Hostname=pgdatabase`, `Port=5432`, password and username specified like above. 
+
+### 1.2.6 SQL Refresher
 
 Pre-Requisites: If you followed the course in the given order,
 Docker Compose should already be running with pgdatabase and pgAdmin.
