@@ -2,6 +2,9 @@
 *.csv
 ny_taxi_postgres_data
 *.json
+.env
+02_workflow_orchestration/airflow/logs/*
+.DS_Store
 
 # Local .terraform directories
 **/.terraform/*

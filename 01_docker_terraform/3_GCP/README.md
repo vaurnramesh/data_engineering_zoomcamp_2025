@@ -60,7 +60,7 @@ source ~/.bashrc
 
 ### Install anaconda in the instance
 
-- Check the google cloud version `glcoud --version`
+- Check the google cloud version `gcloud --version`
 
 - Download anaconda in instance
 `wget https://repo.anaconda.com/archive/<latest_anaconda_version>`
