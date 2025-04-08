@@ -2,6 +2,8 @@ version: '3.8'
 services:
     postgres:
         image: postgres:13
+        networks:
+            - airflow
         environment:
         - POSTGRES_USER=airflow
         - POSTGRES_PASSWORD=airflow
@@ -18,12 +20,19 @@ services:
         user: root
         depends_on:
         - postgres
+        networks:
+            - airflow
         environment:
         - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
         - GCP_PROJECT_ID=${GCP_PROJECT_ID}
         - GCP_GCS_BUCKET=${GCP_GCS_BUCKET}
         - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
         - AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT=${AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT}
+        - PG_HOST=${PG_HOST}
+        - PG_USER=${PG_USER}
+        - PG_PASSWORD=${PG_PASSWORD}
+        - PG_PORT=${PG_PORT}
+        - PG_DATABASE=${PG_DATABASE}
         command: >
           bash -c "
           until pg_isready -h postgres -U airflow; do
@@ -60,10 +69,12 @@ services:
         depends_on:
             - postgres
             - init-airflow
+        networks:
+            - airflow
         environment:
         - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-        - AIRFLOW_UID=50000
-        - COMPOSE_PROJECT_NAME=airflow2025
+        - AIRFLOW_UID=$AIRFLOW_UID
+        - COMPOSE_PROJECT_NAME=airflow2025_default
         - AIRFLOW__CORE__EXECUTOR=LocalExecutor
         - AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC=10
         - AIRFLOW_CONN_METADATA_DB=postgres+psycopg2://airflow:airflow@postgres:5432/airflow
@@ -77,6 +88,11 @@ services:
         - GCP_GCS_BUCKET=${GCP_GCS_BUCKET}
         - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
         - AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT=${AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT}
+        - PG_HOST=${PG_HOST}
+        - PG_USER=${PG_USER}
+        - PG_PASSWORD=${PG_PASSWORD}
+        - PG_PORT=${PG_PORT}
+        - PG_DATABASE=${PG_DATABASE}
         volumes:
             - ./dags:/opt/airflow/dags
             - ./logs:/opt/airflow/logs
@@ -96,10 +112,12 @@ services:
             - postgres
             - init-airflow
             - scheduler
+        networks:
+            - airflow    
         environment:
         - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
         - AIRFLOW_UID=50000
-        - COMPOSE_PROJECT_NAME=airflow2025
+        - COMPOSE_PROJECT_NAME=airflow2025_default
         - AIRFLOW__CORE__EXECUTOR=LocalExecutor
         - AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC=10
         - AIRFLOW_CONN_METADATA_DB=postgres+psycopg2://airflow:airflow@postgres:5432/airflow
@@ -113,6 +131,11 @@ services:
         - GCP_GCS_BUCKET=${GCP_GCS_BUCKET}
         - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
         - AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT=${AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT}
+        - PG_HOST=${PG_HOST}
+        - PG_USER=${PG_USER}
+        - PG_PASSWORD=${PG_PASSWORD}
+        - PG_PORT=${PG_PORT}
+        - PG_DATABASE=${PG_DATABASE}
         volumes:
             - ./dags:/opt/airflow/dags
             - ./logs:/opt/airflow/logs
@@ -130,3 +153,8 @@ services:
 volumes:
   postgres-db-volume:
   shared-data:
+
+networks:
+  airflow:
+    external: true
+    name: airflow2025_default

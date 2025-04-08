@@ -1,4 +1,4 @@
-# Airflow Setup
+# 2.3.1 Airflow Setup
 
 ## Move GCP credentials to $HOME directory
 
@@ -76,7 +76,7 @@ Ensure the `requirement.txt` is added to included libraries to assist with GCP i
 
  2. Initialize the Airflow scheduler, DB, and other config
     ```shell
-    docker-compose up airflow-init
+    docker-compose up init-airflow
     ```
 
  3. Kick up the all the services from the container:
@@ -104,3 +104,152 @@ Ensure the `requirement.txt` is added to included libraries to assist with GCP i
     ```
     docker-compose down --volumes --remove-orphans
     ```
+
+ # 2.3.2 Ingesting to Local Postgres
+
+ We create dags to split the pipeline into multiple steps - 
+
+ 1) Download
+ 2) Unzip the file
+ 3) Ingestion into postgres
+
+ **Download and unzip**
+
+ We are required to download the CSV from the dataTalks club back up from [here](https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_2021-01.csv.gz')
+
+
+Since the csv is in a zipped format, we are required to unzip it in a different step. 
+
+
+## `Ingest_data` script
+
+We will use the ingest data script from module 1, after making some changes to it. 
+
+We are adding the following fields to the `.env` and passing it into the `docker-compose`. Additionally we are even fetching the params into the ingest script 
+
+```bash
+PG_HOST
+PG_USER
+PG_PASSWORD
+PG_PORT
+PG_DATABASE
+```
+
+## Postgres
+
+We are using the same postgres from our week 1. Remember that airflow also uses postgres that is currently in the docker-compose
+
+Our postgres for the ny-taxi data will be present in `./database_ny_taxi/docker-compose-week1.yaml`
+
+We will be adding an external network configuration for our `pgdatabase` network to interact with the `airflow` network 
+
+```YAML
+networks:
+  airflow:
+    external: true
+    name: airflow2025_default
+```
+
+### Start the containers
+
+To allow Airflow and PostgreSQL (ny_taxi) services to talk to each other across different docker-compose files, we created a shared external Docker network named `airflow2025_default`.
+```
+
+                    +---------------------------+
+                    |     Docker Network        |
+                    |   airflow2025_default     |
+                    +-----------+---------------+
+                                |
+          +---------------------+----------------------+
+          |                                            |
++-------------------------+              +------------------------------+
+|   Airflow Services      |              |  Postgres Service (ny_taxi)     |
+|   - webserver           |              | - database_ny_taxi-pgdatabase-1 |
+|   - scheduler           |              |                                 |
+|   - init-airflow        |              |                                 |
++-------------------------+              +------------------------------+
+
+```
+
+1) How to create this network? 
+
+```bash
+docker network create airflow2025_default
+```
+
+We will not need to create this everytime, unless we reset docker. 
+
+2) Configure your docker-compose.yml to use the shared network
+
+Add this block to the bottom of your `docker-compose.yml` file
+
+```yaml
+networks:
+  airflow:
+    external: true
+    name: airflow2025_default
+```
+
+3) Attach all services to the `airflow2025_default` network. For each service in your `docker-compose.yml`, make sure the networks section is added
+
+4) Remove old networks. For example `docker network rm airflow_default`
+
+5) Navigate to `.02_workflow_orchestration/airflow/` 
+
+```bash
+# Run in detached mode
+docker-compose up -d
+```
+
+6) Navigate to `02_workflow_orchestration/airflow/database_ny_taxi/`
+
+```bash
+docker-compose -f docker-compose-week1.yaml up -d
+```
+
+7) Verify if all the services are present within the same network
+
+```bash
+docker inspect airflow2025_default
+```
+
+### Postgres Troubleshooting
+
+1) Login to postgres by running the command 
+
+```bash
+pgcli -h 
+localhost -p 5432 -U root2 -d ny_taxi
+```
+![db_connect](images/db_connect.png)
+
+2) `.env` variables are being set in TWO places - with the `docker-compose.yaml` and `docker-compose-week1.yaml`. This ensures the PG details are being passed correctly across the docker network. 
+
+## Run in Local Airflow
+
+View the local DAG after completing the tasks in the airflow!
+
+![local_airflow](images/airflow_local.png)
+
+## Airflow troubleshooting 
+
+![log](images/log.png)
+
+The above image shows us that the DAG has successfully downloaded the file. However, we have no way to debug the output file using Airflow. 
+
+In our case, the `airflow-schedule` worker container does the airflow task. Finding the `output.csv` in the container would help us to debug the output. 
+
+To reach the worker -
+
+```shell
+# Find the container hash
+docker ps
+
+# ssh in the container 
+docker exec -it <worker_hash> bash
+
+# Look into the output.csv
+more output.csv
+```
+
+
