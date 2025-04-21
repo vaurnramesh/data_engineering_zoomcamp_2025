@@ -1370,6 +1370,28 @@ The table schema includes various fields related to the green taxi trip data (e.
 
 - merge_to_final_table_task: This task performs a merge operation to update the final table (green_2022) with data from the temporary table. It inserts records into the final table where there is no match (based on the unique_row_id), ensuring that only new or updated data is added. This task uses the BigQueryInsertJobOperator to perform a MERGE SQL operation.
 
+#### Extra: Some inights to the architecture 
+
+##### 1. What the external table gives us - 
+
+* A lightweight reference to data in GCS — no load time, no cost to create.
+* Schema introspection: You can look at the Parquet file as if it's a BigQuery table.
+* Easy to query and test structure.
+* Good for semi-structured or changing schema data
+* Cannot merge from external tables
+
+##### 2. What the temporary table (native table) gives us - 
+
+* Materialize data: BigQuery stores it internally for further operations
+* Schema casting (fix wrong types in Parquet)
+* Adding metadata (e.g., `unique_row_id`)
+
+##### 3. Why can't we combine the above steps? 
+
+* It's harder to debug the Ingest, Transform process 
+* Prevents deduplication
+* May not scale if the tables are larger
+
 ### 3: Unpause the DAG
 
 
