@@ -39,8 +39,6 @@ def download(file_gz, file_csv, url):
             shutil.copyfileobj(f_in, f_out)
     
 
-
-
 def format_to_parquet(src_file):
 
     parquet_file = src_file.replace('.csv', '.parquet')
@@ -69,20 +67,20 @@ def upload_to_gcs(bucket, object_name, local_file, gcp_conn_id=CONN):
 dag = DAG(
     "GCP_ingestion_yellow",
     schedule_interval="0 6 2 * *",
-    start_date=datetime(2019, 2, 1),
-    end_date=datetime(2019, 2, 20),
-    catchup=True, 
+    start_date=datetime(2021, 1, 1),
+    end_date=datetime(2021, 8, 2),
+    catchup=False, 
     max_active_runs=1,
 )
 
 
 # Dynamic variables
-table_name_template = 'yellow_taxi_2021-01'
+table_name_template = 'yellow_taxi_{{ execution_date.strftime(\'%Y_%m\') }}'
 file_template_csv_gz = 'output_{{ execution_date.strftime(\'%Y_%m\') }}.csv.gz'
 file_template_csv = 'output_{{ execution_date.strftime(\'%Y_%m\') }}.csv'
 file_template_parquet = 'output_{{ execution_date.strftime(\'%Y_%m\') }}.parquet'
-consolidated_table_name = "yellow_taxi_2021-01"
-url_template = "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_2021-01.csv.gz"
+consolidated_table_name = "yellow_{{ execution_date.strftime(\'%Y\') }}"
+url_template = "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_{{ execution_date.strftime(\'%Y-%m\') }}.csv.gz"
 
 # Task 1: Download and unzip file
 download_task = PythonOperator(
@@ -97,6 +95,7 @@ download_task = PythonOperator(
     retries=10,
     dag=dag
 )
+
 
 # Task 2: Format to parquet
 process_task = PythonOperator(

@@ -85,3 +85,98 @@ You can also do a quick preview of your table:
 Next, let's quickly query one of our public datasets running this command and as we can see on the bottom here, our query results:
 
 ![dw4](images/dw4.jpg)
+
+### Creating an external table
+
+We have already created an external table using `airflow` so we would not be needing to do it again. 
+
+Besides, Big Query allows you to create external tables from external sources like Google Cloud Storage.
+
+Let's create an external table named yellow_taxi_2021-01_ext in my dataset ny_taxi from the CSVs of 2019 and 2020:
+
+
+Let's quickly run this SQL:
+
+```sql
+
+CREATE OR REPLACE EXTERNAL TABLE `trips_data_all.yellow_taxi_2021-01_ext`
+OPTIONS (
+  format = 'CSV',
+  uris = ['gs://<bucket-name>/../2021-*.csv']
+);
+```
+
+and check the results:
+
+![dw5](images/dw5.jpg)
+
+Let's check the table:
+
+![dw6](images/dw6.jpg)
+
+As you can see, all the column names of the CSVs are read and understood by BigQuery. It already knows the data types and can determine if a column is nullable or not.
+
+This is a huge advantage when importing data into BigQuery, as you do not always have to define the schema. However, if needed, you also have the option to define it manually.
+
+Looking at the details, the long-term storage size is zero bytes, and the table size is also zero bytes because the data itself is not stored inside BigQuery; it remains in an external system such as Google Cloud Storage: 
+
+![dw7](images/dw7.jpg)
+
+Now that we have created our external table, let's run this query:
+
+```sql
+SELECT * FROM `de-zoomcamp-00.trips_data_all.yellow_taxi_2021-01_ext` LIMIT 10;
+```
+
+![dw8](images/dw8.jpg)
+
+## 3.1.2 Partitioning and Clustering
+
+### Table partitioning
+
+In Google BigQuery, table partitioning is a feature that allows you to divide a large table into smaller, manageable pieces, called partitions. This division is based on a specific column, typically a date or timestamp, or on integer range values. Partitioning is primarily used to improve query performance and reduce costs by allowing you to query only the relevant partitions instead of scanning the entire table.
+
+So how will a partitioned table look when we partition it by creation date?
+
+![dw9](images/dw9.jpg)
+
+this is really powerful because once BigQuery understands that it only needs to get the data for 2nd of March 2018, it will not read or process any data of 1st of March 2018 or 3rd of March 2018.
+
+### Creating a partitioned table
+
+First, let's create a non-partitioned table. This will help us see the performance improvements once we partition our data.
+
+From our external table, let's create a non-partitioned table by directly copying all its content to a table called yellow_taxi_2021_non_partitioned
+
+Let's run this query:
+
+```sql
+CREATE OR REPLACE TABLE de-zoomcamp-00.trips_data_all.yellow_tripdata_non_partitoned AS
+SELECT *  FROM `de-zoomcamp-00.trips_data_all.yellow_taxi_2021-01_ext`;
+```
+
+This took about 15 seconds to create a table and is taking up 178 MB in the non partitioned table. 
+
+Now let's create a partitioned table. Let's run this query:
+
+```sql
+CREATE OR REPLACE TABLE de-zoomcamp-00.trips_data_all.yellow_tripdata_partitoned
+PARTITION BY
+  DATE(tpep_pickup_datetime) AS
+SELECT *  FROM `de-zoomcamp-00.trips_data_all.yellow_taxi_2021-01_ext`;
+```
+
+This took slightly longer to run as it contain partitioning. 
+
+![dw10](images/dw10.jpg)
+
+
+In this use case, selecting all the distinct vendor IDs from the non-partitioned table between 1st of June and 30th of June, we can see on the right-hand side at the top that this query will process 1.6 gigabytes of data:
+
+![dw11](images/dw11.jpg)
+
+For our partitioned table, the same query will process about 106 megabytes of data. That's a huge advantage if you want to run this query repeatedly which directly impacts your cost:
+
+![dw12](images/dw12.jpg)
+
+Moreover we can actually take a look into the partitions generally each data set has information schema table which has a partitions once we select this we can actually see how many rows are falling into which partition.
