@@ -204,7 +204,8 @@ create_external_table_task = BigQueryInsertJobOperator(
                 )
                 OPTIONS (
                     uris = ['gs://{BUCKET}/raw/{file_template_parquet}'],
-                    format = 'PARQUET'
+                    format = 'PARQUET',
+                    expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 2 DAY)
                 );
             """,
             "useLegacySql": False,
@@ -223,6 +224,9 @@ create_temp_table_task = BigQueryInsertJobOperator(
         "query": {
             "query": f"""
                 CREATE OR REPLACE TABLE `{PROJECT_ID}.{BIGQUERY_DATASET}.{table_name_template}_tmp`
+                OPTIONS (
+                    expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 2 DAY)
+                )
                 AS
                 SELECT
                     MD5(CONCAT(
