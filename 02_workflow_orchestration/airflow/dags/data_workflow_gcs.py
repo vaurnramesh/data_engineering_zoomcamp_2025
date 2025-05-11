@@ -23,20 +23,36 @@ CONN= os.environ.get("AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT")
 
 # Utility functions
 def download(file_gz, file_csv, url):
+    import time
+    import requests
+    import gzip
+    import shutil
 
-    # Download the CSV.GZ file
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(file_gz, 'wb') as f_out:
-            f_out.write(response.content)
-    else:
-        print(f"Error downloading file: {response.status_code}")
+    print(f"Starting download from: {url}")
+    start = time.time()
+    try:
+        response = requests.get(url, timeout=30)  # timeout in seconds
+        if response.status_code == 200:
+            with open(file_gz, 'wb') as f_out:
+                f_out.write(response.content)
+            print(f"Downloaded file to {file_gz}")
+        else:
+            print(f"Error downloading file: {response.status_code}")
+            return False
+    except requests.exceptions.Timeout:
+        print("Request timed out.")
         return False
-    
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return False
+    end = time.time()
+    print(f"Download took {end - start:.2f} seconds")
+
     # Unzip the CSV file
     with gzip.open(file_gz, 'rb') as f_in:
         with open(file_csv, 'wb') as f_out:
             shutil.copyfileobj(f_in, f_out)
+    print(f"Extracted to {file_csv}")
     
 
 def format_to_parquet(src_file):
@@ -67,9 +83,9 @@ def upload_to_gcs(bucket, object_name, local_file, gcp_conn_id=CONN):
 dag = DAG(
     "GCP_ingestion_yellow",
     schedule_interval="0 6 2 * *",
-    start_date=datetime(2021, 1, 1),
-    end_date=datetime(2021, 8, 2),
-    catchup=False, 
+    start_date=datetime(2020, 1, 1),
+    end_date=datetime(2021, 1, 1),
+    catchup=True,
     max_active_runs=1,
 )
 

@@ -1709,3 +1709,9 @@ Once the DAG finishes, you can go to your GCP project's dashboard and search for
 and query it:
 
 ![kubebq2](images/kubebq2.jpg)
+
+## Backfilling
+
+```bash
+docker exec -it airflow-scheduler-1 airflow dags backfill -s <start_date> -e <end_date> <Dag_Name>
+```
