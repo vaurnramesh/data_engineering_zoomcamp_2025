@@ -16,7 +16,7 @@ import pyarrow.parquet # type: ignore
 
 
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
-BUCKET = os.environ.get("GCP_GCS_BUCKET")
+BUCKET = os.environ.get("GCP_GCS_BUCKET_YELLOW")
 path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
 CONN= os.environ.get("AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT")

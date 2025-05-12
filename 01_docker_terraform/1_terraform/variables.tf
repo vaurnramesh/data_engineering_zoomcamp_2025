@@ -1,6 +1,6 @@
 variable "credentials" {
   description = "My Credentials"
-  default     = "~/.gc/de-zoomcamp-00-13148bd5ff6e.json"
+  default     = "~/.gc/google_credentials.json"
 }
 
 
@@ -24,7 +24,7 @@ variable "location" {
 variable "bq_dataset_name" {
   description = "My BigQuery Dataset Name"
   #Update the below to what you want your dataset to be called
-  default     = "demo_dataset"
+  default     = "trips_data_all"
 }
 
 variable "gcs_bucket_name" {
