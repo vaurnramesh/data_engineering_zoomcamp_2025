@@ -348,3 +348,352 @@ I will use "dbt" branch. After creating the new branch, you can go to your repo 
 
 Note: it is important to create a new branch, because if we had chosen to work on the master branch we would get stuck in read-only mode.
 
+## 4.3.1 Development of dbt Models
+
+_[Video source](https://www.youtube.com/watch?v=ueVy2N54lyc)_
+
+Let's start now with the development of those DBT models. If we go back to the initial lessons, DBT sits on top of our platform, either BigQuery or Postgres.
+
+We already loaded the raw data as the trips data. Now we're going to work on development, testing, and documentation. We'll start with development and by the end of these lessons, we'll deploy this into production to use those transformations in our BI tools.
+ <br>
+
+![ae21](images/ae21.jpg)
+<br><br>
+
+### Modular data modelling
+
+To get started, we're going to use a modular data modeling approach. As we discussed in earlier lessons, we'll create fact tables and dimensional tables. The structure of our DBT project will look something like this:
+
+- First, we have the tables we loaded (trips data). These are our sources.
+
+- Then, we'll start building SQL scripts called "models" in DBT to perform transformations.
+
+For example, we'll pick up the source data, clean it, deduplicate it, recast and rename columns, and typecast data. Afterward, we'll apply business logic to create fact and dimension tables. Finally, we'll create data marts to aggregate the data for our stakeholders.
+
+We initially have tables that already exist outside our DBT project. These contain the data we will use, and we define them as sources. Additionally, we will use a file (e.g., taxi_zone_lookup) to create a table that will be incorporated into our transformations.
+
+ <br>
+
+![ae22](images/ae22.jpg)
+<br><br>
+
+### Anatomy of a dbt model
+
+How does this look in each SQL file? Let's examine the anatomy of a DBT model:
+
+ <br>
+
+![ae25](images/ae25.jpg)
+<br><br>
+
+DBT models are SQL scripts. We'll always work with files named after the model, saved as .sql. Inside these files, we write SQL statements, primarily SELECT statements, because DBT handles the DDL (Data Definition Language) and DML (Data Manipulation Language) for us.
+
+To tell DBT how to create the DDL and DML, we use configurations like this:
+
+ <br>
+
+![ae23](images/ae23.jpg)
+<br><br>
+
+This tells DBT to materialize the model as a table in the database. When you run dbt run, it compiles all the SQL files in your project. For example, the result might look like this:
+
+ <br>
+
+![ae24](images/ae24.jpg)
+<br><br>
+
+### Materializations in dbt cloud
+
+There are mainly four types of materializations in DBT:
+
+- Ephemeral: These are models that do not materialize in physical storage. They only exist within other models, similar to a Common Table Expression (CTE) if you're familiar with writing SQL.
+
+- View: A view materializes in the database as a view. Every time you run dbt run, it creates or alters the view based on the SELECT statement in your file.
+
+- Table: This materializes as a table in the physical database. Each time you run the model, DBT drops the existing table and recreates it with the CREATE TABLE AS SELECT statement, as shown earlier.
+
+- Incremental: This is a more advanced materialization type. It also materializes as a table in the physical database, but instead of recreating the table entirely, it can work in two ways: Drop the table and recreate it with the SELECT statement or Insert only the new data into the table, allowing you to update the table incrementally.
+
+### FROM clause of a dbt model
+
+**1: sources**
+
+We first select data from sources. This is the data we have already loaded, and we define it in a YAML file. In this file, we specify where to find the source, allowing us to define the data location only once. After that, we can reference all tables within that location using the definition.
+
+This approach abstracts the complexity of where the source is physically stored, as we only define it once. When referencing it in the project, we use the source() function, providing the source name and the table name. DBT then compiles this reference into the appropriate database and schema location defined in the YAML file.
+
+ <br>
+
+![ae26](images/ae26.jpg)
+<br><br>
+
+Another benefit of defining sources in DBT is the ability to perform extensive testing on them. A key example is freshness testing. We can define a threshold for the freshness of our data, which is particularly useful in production pipelines. This helps identify outdated data before stakeholders notice it. The freshness threshold ensures we’re alerted if the data exceeds the defined acceptable age.
+
+Additionally, we can use selection to run specific DBT models dependent on fresh data. Testing and validation of sources significantly improve data quality in our models, as we verify the integrity of the input data.
+
+**2: seeds**
+
+The second source of data we select from is **seeds**. Seeds are CSV files stored within our repository. When running dbt run on a seed, DBT executes an operation similar to a COPY INTO command in SQL.
+
+The advantage of using seeds in DBT is that they are version-controlled and stored in the same repository as the rest of the DBT project. This ensures:
+
+- Consistency and centralization of all project files.
+- Integration with version control for better collaboration.
+- Documentation and testing capabilities for the seed data.
+
+Seeds are ideal for data that does not change frequently. For example, we can use a seed for a master data table, like taxi_zone_lookup, which is relatively small and benefits from version control.
+
+**3: refs**
+
+The other thing we can select from, continuing with the modular approach, is the DBT models themselves. For example, after working with sources and creating transformations to clean the green trip data and yellow trip data, we can move on to building fact or dimensional models.
+
+ <br>
+
+![ae27](images/ae27.jpg)
+<br><br>
+
+In these cases, we use the ref() function to reference the underlying tables. By specifying the name of the model within the ref() function, DBT compiles the code and determines the correct location for the referenced model.
+
+This approach allows us to run the same code in any environment. For instance, when working locally, the model may go to a development schema like my_name_schema. In production, the same code will automatically point to a production schema. DBT abstracts the complexity of environment-specific configurations, enabling seamless execution across different environments.
+
+Another benefit of using ref() is that it automatically builds dependencies between models. For example, if a new DBT model depends on the stg_green_tripdata model, DBT recognizes this relationship. This ensures that models are executed in the correct order during development and deployment, simplifying the process significantly.
+
+ <br>
+
+![ae28](images/ae28.jpg)
+<br><br>
+
+## 4.3.2 (Coding) Developing the first staging model
+
+Now that we have completely set up our DBT, we will `initialise` our DBT project. We will get loads of boilerplate templates as the image below - 
+
+![aex1](images/aex1.jpg)
+
+### schema.yml
+
+Under the models directory, there is a folder named staging. This will represent the initial layer of models responsible for cleaning the source data. Inside the staging folder, there is a schema.yml file for defining the sources:
+
+```yaml
+
+version: 2
+
+sources:
+  - name: staging
+    database: <database name from BigQuery> 
+    schema: <schema in bigquery
+      
+    tables:
+      - name: green_tripdata
+      - name: yellow_tripdata
+
+models:
+    - name: stg_green_tripdata
+    ...  
+    - name: stg_yellow_tripdata
+    ...
+```
+
+> [!NOTE]  
+> Make sure the values ​​in the YAML match the values ​​in your BigQuery!
+
+![aex2](images/aex2.jpg)
+
+Since I had green and yellow trip data by year, I had to run an `UNION ALL` query to simplify my DBT models. Now I have `green_all` and `yellow_all`
+
+
+### stg_green_tripdata.sql
+
+Inside the staging folder, there is a stg_green_tripdata.sql file. This dbt model defines a SQL query that transforms and materializes data from a source table (green_tripdata) into a view in the database.
+
+1) Sets the model to be materialized as a view. 
+
+A view is a virtual table created dynamically by running the query each time it is accessed, rather than persisting data as a physical table.
+
+```sql
+{{
+    config(
+        materialized='view'
+    )
+}}
+```
+<br><br>
+
+2) Deduplication and filtering
+
+    * Data Source: Fetches data from the green_tripdata table in the staging schema using the {{ source() }} function, which references an external table defined in dbt's sources.
+
+    * Filtering: Excludes rows where vendorid is NULL.
+
+    * Deduplication: Uses the row_number() function to assign a unique row number (rn) within each group of records partitioned by vendorid and lpep_pickup_datetime. This helps to remove duplicates later.
+
+    The main SELECT statement transforms the cleaned data (tripdata) into a more structured and enriched dataset.
+    
+    Last filtering ensures only the first record for each vendorid and lpep_pickup_datetime combination is included by filtering for rows where rn = 1.
+
+```sql
+
+with tripdata as 
+(
+  select *,
+    row_number() over(partition by vendorid, lpep_pickup_datetime) as rn
+  from {{ source('staging','green_tripdata') }}
+  where vendorid is not null 
+)
+
+....
+....
+....
+
+sql
+
+from tripdata
+where rn = 1
+```
+<br><br>
+
+3) Using DBT utils function
+
+    * Generates a unique surrogate key (tripid) by combining vendorid and lpep_pickup_datetime using dbt's generate_surrogate_key utility.
+
+    * Safely casts vendorid to an integer using dbt's safe_cast() function.
+
+
+```sql
+{{ dbt_utils.generate_surrogate_key(['vendorid', 'lpep_pickup_datetime']) }} as tripid,
+{{ dbt.safe_cast("vendorid", api.Column.translate_type("integer")) }} as vendorid,
+
+```
+<br><br>
+
+4) Type casting
+
+Converts datetime fields (lpep_pickup_datetime, lpep_dropoff_datetime) to timestamp format for consistent handling.
+
+```sql
+
+cast(lpep_pickup_datetime as timestamp) as pickup_datetime,
+cast(lpep_dropoff_datetime as timestamp) as dropoff_datetime,
+
+```
+<br><br>
+
+5) Type casting with dbt utils
+
+Casts fields like passenger_count and trip_distance to appropriate types (integer and numeric).
+
+```sql
+
+{{ dbt.safe_cast("passenger_count", api.Column.translate_type("integer")) }} as passenger_count,
+cast(trip_distance as numeric) as trip_distance,
+```
+<br><br>
+
+6) Macros / Custom function
+
+    * Handles financial data like fare_amount and tip_amount, casting them to numeric
+
+    * Uses coalesce() to ensure payment_type is never NULL, defaulting to 0
+
+    * Maps payment_type to a human-readable description using a custom function (get_payment_type_description).
+
+```sql
+
+cast(fare_amount as numeric) as fare_amount,
+coalesce({{ dbt.safe_cast("payment_type", api.Column.translate_type("integer")) }},0) as payment_type,
+{{ get_payment_type_description("payment_type") }} as payment_type_description
+
+```
+<br><br>
+
+#### Why is a staging table required?
+
+- Pulls directly from raw data sources (like `green_all` and `yellow_all` tables)
+- Renames columns to consistent, snake_case formats
+- Applies basic type casting (like converting strings to timestamps)
+- Removes unwanted columns
+- Adds useful metadata like ingestion date
+
+
+
+### Macros
+
+You may have noticed that I've been using elements enclosed in double curly brackets, such as {{ source() }} and {{ ref() }}. These are macros, and they allow us to dynamically generate SQL code. In DBT, the content inside double curly brackets is written in a templating language called Jinja. This language is similar to Python in its structure and enables us to define how DBT should compile the code.
+
+Macros in DBT are essentially functions that generate code. Unlike functions in Python, the input and output of a macro result in dynamically generated SQL code. Macros are very useful for simplifying repetitive code, adhering to the DRY (Don't Repeat Yourself) principle, and enabling dynamic code generation. For example, you can use loops within a macro to generate complex SQL constructs like case statements.
+
+Let’s create a macro called get_payment_type_description. It will take a parameter, such as payment_type, and generate a SQL case statement. The syntax for defining macros is similar to Python functions:
+
+- Use macro to define the macro.
+- Provide the macro's name.
+- Specify its parameters.
+- Include the SQL code to be dynamically generated
+
+
+Here’s an example of get_payment_type_description.sql macro:
+
+```sql
+
+{#
+    This macro returns the description of the payment_type 
+#}
+
+{% macro get_payment_type_description(payment_type) -%}
+
+    case {{ dbt.safe_cast("payment_type", api.Column.translate_type("integer")) }}  
+        when 1 then 'Credit card'
+        when 2 then 'Cash'
+        when 3 then 'No charge'
+        when 4 then 'Dispute'
+        when 5 then 'Unknown'
+        when 6 then 'Voided trip'
+        else 'EMPTY'
+    end
+
+{%- endmacro %}
+```
+
+This macro is designed to return the description of a given payment_type in a SQL context. It uses a CASE statement to map integer values of payment_type to their corresponding descriptions. 
+
+- The macro uses dbt.safe_cast to ensure payment_type is safely converted to an integer (or a compatible type). This is useful for ensuring type compatibility in SQL.
+
+- api.Column.translate_type("integer") helps translate the type definition for the database being used.
+
+The macro outputs the resulting SQL CASE statement, which can then be embedded in a query to dynamically resolve the description of the payment type.
+
+Example Usage:
+
+ <br>
+
+![ae30](images/ae30.jpg)
+<br><br>
+
+
+We can observe the macro in the stg_green_tripdata.sql file, line 42:
+
+```sql
+
+{{ get_payment_type_description("payment_type") }} as payment_type_description
+
+```
+
+The output of the macro is included in the query as a new column named payment_type_description. For instance:
+
+ <br>
+
+![ae31](images/ae31.jpg)
+<br><br>
+
+
+When compiled, DBT will replace the macro call with the actual SQL case statement. This approach saves time and effort when dealing with large-scale projects.
+
+Macros can also be reused across projects by creating packages. A DBT package is similar to a library in other programming languages. It can contain models, macros, and other reusable components. By adding a package to your project, you can leverage its functionality anywhere in your codebase.
+
+For example, if you find yourself frequently using a macro like get_payment_type_description across multiple projects, you can bundle it into a package and include it in your DBT projects using the packages.yml file.
+
+### Runnable Commands
+
+To build a test run as it's cheaper - 
+
+```
+dbt build --select stg_green_tripdata --vars '{'is_test_run': 'false'}'
+```
