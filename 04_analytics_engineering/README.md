@@ -832,22 +832,257 @@ Since this project contains 2020 and 2021 (July) data we have 26550557 rows of d
 
 ![aex3](images/aex3.jpg)
 
+### Monthly zone revenue
 
-## 4.3.2 (Testing) Test and Document the project
+This is a dbt model that creates a table summarizing revenue-related metrics for trips data as a table selecting data from our previous dbt model called fact_trips.
+
+This model creates a table with monthly revenue metrics per pickup zone and service type, including various fare components, trip counts, and averages.
+
+It enables analysis of revenue trends, passenger patterns, and trip details across zones and services, giving a clear breakdown of monthly performance.
+
+dm_monthly_zone_revenue.sql looks like:
+
+```sql
+
+{{ config(materialized='table') }}
+
+with trips_data as (
+    select * from {{ ref('facts_trips') }}
+)
+    select 
+    -- Reveneue grouping 
+    pickup_zone as revenue_zone,
+    {{ dbt.date_trunc("month", "pickup_datetime") }} as revenue_month, 
+
+    service_type, 
+
+    -- Revenue calculation 
+    sum(fare_amount) as revenue_monthly_fare,
+    sum(extra) as revenue_monthly_extra,
+    sum(mta_tax) as revenue_monthly_mta_tax,
+    sum(tip_amount) as revenue_monthly_tip_amount,
+    sum(tolls_amount) as revenue_monthly_tolls_amount,
+    sum(ehail_fee) as revenue_monthly_ehail_fee,
+    sum(improvement_surcharge) as revenue_monthly_improvement_surcharge,
+    sum(total_amount) as revenue_monthly_total_amount,
+
+    -- Additional calculations
+    count(tripid) as total_monthly_trips,
+    avg(passenger_count) as avg_monthly_passenger_count,
+    avg(trip_distance) as avg_monthly_trip_distance
+
+    from trips_data
+    group by 1,2,3
+```    
+
+The main query groups the data by:
+
+- Pickup zone (pickup_zone) → Labeled as revenue_zone.
+- Month of the pickup date (pickup_datetime) → Labeled as revenue_month 
+- Service type (service_type) → Such as economy, premium, etc.
+
+For each group, the query calculates revenue-related metrics like revenue_monthly_fare (Sum of fare_amount), revenue_monthly_extra (Sum of additional fees), etc and other metrics like total_monthly_trips (Count of trips), avg_monthly_passenger_count (Average number of passengers per trip) and avg_monthly_trip_distance (Average distance per trip).
+
+Finally, The GROUP BY 1, 2, 3 clause organizes the results by the specified dimensions (pickup zone, revenue month, and service type). Each calculation is applied within these groups. 1 refers to pickup_zone, 2 refers to the truncated month of pickup_datetime, 3 refers to service_type.
+
+So far, our project looks like this:
+
+ <br>
+
+![ae31](images/ae47.jpg)
+<br><br>
+
+### Development Overview
+
+**1: schema.yml values**
+
+**2: Check BigQuery**
+
+Head over to BigQuery and check the views that dbt generated:
+
+ <br>
+
+![ae31](images/ae32.jpg)
+<br><br>
+
+ <br>
+
+![ae31](images/ae33.jpg)
+<br><br>
+
+ <br>
+
+![ae31](images/ae34.jpg)
+<br><br>
+
+Dim_zones:
+
+ <br>
+
+![ae31](images/ae41.jpg)
+<br><br>
+
+Fact_trips:
+
+ <br>
+
+![ae31](images/ae44.jpg)
+<br><br>
+
+dm_monthly_zone_revenue:
+
+ <br>
+
+![ae31](images/ae48.jpg)
+<br><br>
 
 
+## 4.3.2 Test and Document the project
 
+### Theory Testing
+
+We have many models now, but how do we ensure that the data we deliver to the end user is correct? More importantly, how do we make sure that we don't build models on top of incorrect data? We need to identify errors quickly. For this reason, we can use DBT tests.
+
+DBT tests are assumptions we make about our data. They're essentially statements that select data we don’t want to have. If the query produces results, the test fails and stops execution immediately, preventing the building of dependent models. For example, when building a project, if the query returns no results, the test passes, the data is good, and no alerts are triggered.
+
+These assumptions are primarily defined in YAML files like our schema.yml and are compiled into SQL code. DBT comes with four out-of-the-box tests:
+
+- Unique Test - Ensures the uniqueness of a field in the data model.
+- Not Null Test - Verifies that a field does not contain null values.
+- Accepted Values Test - Checks if a field contains only predefined valid values.
+- Foreign Key Test - Ensures relationships between fields in different tables are valid.
+
+For example, the "Accepted Values" test might ensure that a field like payment_type only contains values 1, 2, 3, 4, or 5. If it’s outside this range, the test will fail:
+
+```yaml
+
+          - name: payment_type
+            description: A numeric code signifying how the passenger paid for the trip.
+            tests:
+              - accepted_values:
+                  values: [1,2,3,4,5]
+                  severity: warn
+
+```            
+
+
+Another test ensures that pickup_location has a valid relationship to the ref_taxi_lookup table, verifying it corresponds to a valid taxi zone:
+
+```yaml
+
+          - name: Pickup_locationid
+            description: locationid where the meter was engaged.
+            tests:
+              - relationships:
+                  to: ref('taxi_zone_lookup')
+                  field: locationid
+                  severity: warn
+```                  
+
+Similarly, trip_id must be unique and not null, as it’s the primary key:
+
+```yaml
+
+          - name: tripid
+            description: Primary key for this table, generated with a concatenation of vendorid+pickup_datetime
+            tests:
+                - unique:
+                    severity: warn
+                - not_null:
+                    severity: warn
+```                    
+
+When these tests are compiled, they generate SQL code like this:
+
+ <br>
+
+![ae45](images/ae45.jpg)
+<br><br>
+
+
+If there are no results, the data is valid. Otherwise, it will produce warnings, helping us identify and fix issues in our data quickly:
+
+ <br>
+
+![ae46](images/ae46.jpg)
+<br><br>
+
+### Adding models and writing tests
+
+Now that we have many models we are required to know some information about each of these models. Dbt has a macros that we can use to generate the models. 
+
+Although `schema.yaml` has a 'generate model' it doesn't seem to work. Hence we are using the below macro to help us with it - 
+
+_[generate_model_yaml](https://github.com/dbt-labs/dbt-codegen/tree/0.13.1/?tab=readme-ov-file#generate_model_yaml-source)_
+
+```
+{% set models_to_generate = codegen.get_models(directory='staging', prefix='stg') %}
+{{ codegen.generate_model_yaml(
+    model_names = models_to_generate
+) }}
+```
+
+Create a new file and we can use the above script to compile the code to generate our models. These models can then be pasted into our `schema.yml`
+
+<br>
+![ae46](images/aex4.jpg)
+<br><br>
+
+We can now add our tests to our models generated.  
+
+## Deployment
+
+We now have our whole project, so it's time to take it into production, analyze the data, and serve it to our 
+stakeholders. If we recall what we learned about dbt at the very beginning, we introduced layers to our 
+development. We’ve already seen how to handle development, testing, and documentation, all happening in our 
+development environment.
+
+Now, to take it into production, we go through a process called deployment. This involves taking all our code, 
+opening a pull request, and merging the code into the main branch, which affects our production environment. 
+In production, we’ll run the models, but there will be some differences.
+
+For example, during development, we often limit the data. In production, we need all the data without limits. 
+Additionally, in a real-life production scenario, not everyone will have the same access rights. Not everyone 
+will be able to write or read all the data. This is likely handled in a different database or schema with 
+specific access controls.
+
+The deployment workflow works as follows:
+
+- Development is done in custom branches. Each team member works in their own development branch.
+
+- Meanwhile, production continues using the main branch, unaffected by the development branches.
+
+- When a development branch is ready for production, a pull request is opened.
+
+- Once approved, the code is merged into the main branch.
+
+- Run the new models in the production environment using the main branch.
+
+- Schedule the models updating on a nightly, daily or hourly basis to keep the data up to date.
 
 ## Runnable Commands
 
 To build a test run as it's cheaper - 
-
 ```
 dbt build --select stg_green_tripdata --vars '{'is_test_run': 'false'}'
 ```
 
 To build a full run with all models - 
-
 ```
 dbt build --vars '{"is_test_run": false}'
+```
+
+To test whole project -
+```
+dbt test
+```
+
+To test a specific model - 
+```
+dbt test --select stg_yellow_tripdata
+```
+
+To generate docs
+```
+dbt docs generate
 ```
