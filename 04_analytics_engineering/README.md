@@ -1086,3 +1086,9 @@ To generate docs
 ```
 dbt docs generate
 ```
+
+## Dashboard 
+
+Dashboard is created using Googles Looker studio or previously called Google Data Studio
+
+Please view the dashboard using this [link](https://lookerstudio.google.com/reporting/0eec052a-af9b-43ed-95e8-09983c360cc8)
