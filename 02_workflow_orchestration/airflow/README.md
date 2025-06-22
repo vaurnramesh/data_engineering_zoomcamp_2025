@@ -1013,7 +1013,7 @@ We will now run a slightly more complex DAG that will:
 
 **Tables explanation**
 
-- External Table: Serves as the initial point of access to the raw data. The data in this table is not physically stored in BigQuery. There is a External table for each month
+- External Table: Serves as the initial point of access to the raw data. The data in this table is not physically stored in BigQuery. There is a External table for each month. External tables in BigQuery are generally used to write SQL queries from a Data Lake to a Data Lake. In GCP, our external table is Google Cloud Storage. 
 
 - Temporary table: This is a native table created in BigQuery using the data from the external table. Copies the entire dataset from the associated external table into this table, while enriching it with the additional columns unique_row_id and filename. There is a native table for each month.
 
