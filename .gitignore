@@ -5,6 +5,7 @@ ny_taxi_postgres_data
 02_workflow_orchestration/airflow/logs/*
 .DS_Store
 *__pycache__
+.ipynb_checkpoints
 
 # Local .terraform directories
 **/.terraform/*
