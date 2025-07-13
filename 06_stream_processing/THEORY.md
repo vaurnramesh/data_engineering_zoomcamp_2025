@@ -384,6 +384,23 @@ This combination of:
 
 <br>
 
+### Topic configurations
+
+* `retention.ms`: due to storage space limitations, messages can't be kept indefinitely. This setting specifies the amount of time (in milliseconds) that a specific topic log will be available before being deleted.
+* `cleanup.policy`: when the `retention.ms` time is up, we may choose to `delete` or `compact` a topic log.
+    * Compaction does not happen instantly; it's a batch job that takes time.
+* `partition`: number of partitions.
+    * The higher the amount, the more resources Kafka requires to handle them. Remember that partitions will be replicated across brokers; if a broker dies we could easily overload the cluster.
+* `replication`: replication factor; number of times a partition will be replicated.
+
+### Consumer configurations
+
+* `offset`: sequence of message IDs which have been read by the consumer.
+* `consumer.group.id`: ID for the consumer group. All consumers belonging to the same group contain the same `consumer.group.id`.
+* `auto_offset_reset`: when a consumer subscribes to a pre-existing topic for the first time, Kafka needs to figure out which messages to send to the consumer.
+    * If `auto_offset_reset` is set to `earliest`, all of the existing messages in the topic log will be sent to the consumer.
+    * If `auto_offset_reset` is set to `latest`, existing old messages will be ignored and only new messages will be sent to the consumer.
+
 ### Producer Acknowledgment
 
 Kafka producers can configure the `acks` setting to control message delivery guarantees. This setting defines how many broker acknowledgments the producer must receive before considering a write successful.
