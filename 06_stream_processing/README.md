@@ -37,5 +37,3 @@ source .venv/bin/activate
 pip install kafka-python
 ```
 
-
-
